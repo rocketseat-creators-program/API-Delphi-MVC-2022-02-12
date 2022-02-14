@@ -5,10 +5,10 @@ uses
   UnitConnection.Model.Interfaces,
   UnitFactory.Connection.IBExpress;
 
-  type
-    TDatabase = class
-      class function Query: iQuery;
-    end;
+type
+  TDatabase = class
+    class function Query: iQuery;
+  end;
 
 implementation
 

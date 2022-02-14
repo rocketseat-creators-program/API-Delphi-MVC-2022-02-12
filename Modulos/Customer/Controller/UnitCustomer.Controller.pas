@@ -1,25 +1,27 @@
 unit UnitCustomer.Controller;
 
 interface
+
 uses
+  System.Generics.Collections,
   Horse,
   Horse.Commons,
   Classes,
   SysUtils,
   System.Json,
-  System.Generics.Collections,
-  DB,
   UnitConnection.Model.Interfaces;
-
 
 type
   TCustomerController = class
     class procedure Registry;
-    class procedure Get(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-    class procedure GetOne(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-    class procedure Create(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-    class procedure Update(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-    class procedure Delete(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+    class procedure GetAll(Req: THorseRequest; Res: THorseResponse;
+      Next: TProc);
+    class procedure GetOne(Req: THorseRequest; Res: THorseResponse;
+      Next: TProc);
+    class procedure Post(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+    class procedure Put(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+    class procedure Delete(Req: THorseRequest; Res: THorseResponse;
+      Next: TProc);
   end;
 
 implementation
@@ -28,107 +30,123 @@ implementation
 
 uses UnitCustomer.Model;
 
-class procedure TCustomerController.Create(Req: THorseRequest; Res: THorseResponse; Next: TProc);
-var
-  oJson: TJSONObject;
-  customer: TCustomerModel;
-begin
-  if Req.Body.IsEmpty then
-    raise Exception.Create('Client not found!');
-  oJson := Req.Body<TJSONObject>;
-  customer := TCustomerModel.Create;
-  customer.codigo := oJson.GetValue<integer>('codigo');
-  customer.nome   := oJson.GetValue<string>('nome');
-  customer.cpf_cnpj := oJson.GetValue<string>('cpf_cnpj');
-  customer.Insert;
-  Res.Send<TJSONObject>(oJson).Status(THTTPStatus.Created);
-end;
-
-class procedure TCustomerController.Delete(Req: THorseRequest;
-  Res: THorseResponse; Next: TProc);
+class procedure TCustomerController.Delete(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
   id: Integer;
-  customer: TCustomerModel;
+  Customer: TCustomerModel;
 begin
   if Req.Params.Count = 0 then
     raise Exception.Create('id not found');
-  id := Req.Params.Items['id'].ToInteger;
-  customer := TCustomerModel.find(id);
-  customer.Delete;
-  Res.Send<TJSONObject>(TJSONObject.Create.AddPair('message', 'Customer successfully deleted')).Status(THTTPStatus.NoContent);
+  id := Req.Params.Items['id'].ToInteger();
+  Customer := TCustomerModel.find(id);
+  if Assigned(Customer) then
+  begin
+    Customer.Delete;
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('message', 'Customer sucessfully deleted'));
+  end
+  else
+  begin
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('message', 'Customer not found'))
+       .Status(THTTPStatus.NotFound);
+  end;
 end;
 
-class procedure TCustomerController.Get(Req: THorseRequest; Res: THorseResponse;
-  Next: TProc);
+class procedure TCustomerController.GetAll(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
+  Customers: TList<TCustomerModel>;
+  Customer: TCustomerModel;
   aJson: TJSONArray;
-  customers: TList<TCustomerModel>;
-  customer: TCustomerModel;
-  oJson: TJSONObject;
+  ojson: TJSONObject;
 begin
   aJson := TJSONArray.Create;
-  customers := TCustomerModel.findAll;
-  for customer in customers do
+  Customers := TCustomerModel.findAll;
+  for Customer in Customers do
   begin
-    oJson := TJSONObject.Create;
-    oJson.AddPair('codigo', TJSONNumber.Create(customer.codigo));
-    oJson.AddPair('nome', customer.nome);
-    oJson.AddPair('cpf_cnpj', customer.cpf_cnpj);
-    aJson.AddElement(oJson);
+    ojson := TJSONObject.Create;
+    ojson.AddPair('codigo', TJSONNumber.Create(Customer.codigo));
+    ojson.AddPair('nome', Customer.nome);
+    ojson.AddPair('cpf_cnpj', Customer.cpf_cpnj);
+    aJson.AddElement(ojson);
   end;
-  Res.Send<TJSONArray>(aJson)
+  Res.Send<TJSONArray>(aJson);
 end;
 
-class procedure TCustomerController.GetOne(Req: THorseRequest;
-  Res: THorseResponse; Next: TProc);
+class procedure TCustomerController.GetOne(Req: THorseRequest; Res: THorseResponse; Next: TProc);
 var
+  Customer: TCustomerModel;
+  ojson: TJSONObject;
   id: Integer;
-  customer: TCustomerModel;
-  oJson: TJSONObject;
 begin
-  if Req.Params.Count > 0 then
-    id := Req.Params.Items['id'].ToInteger;
-  if id = 0 then
-    raise Exception.Create('id not found!');
-  customer := TCustomerModel.find(id);
-  if Assigned(customer) then
+  if Req.Params.Count = 0 then
+    raise Exception.Create('id not found');
+  id := Req.Params.Items['id'].ToInteger();
+  Customer := TCustomerModel.find(id);
+  if Assigned(Customer) then
   begin
-    oJson := TJSONObject.Create;
-    oJson.AddPair('codigo', TJSONNumber.Create(customer.codigo));
-    oJson.AddPair('nome', customer.nome);
-    oJson.AddPair('cpf_cnpj', customer.cpf_cnpj);
-    Res.Send<TJSONObject>(oJson);
+    ojson := TJSONObject.Create;
+    ojson.AddPair('codigo', TJSONNumber.Create(Customer.codigo));
+    ojson.AddPair('nome', Customer.nome);
+    ojson.AddPair('cpf_cnpj', Customer.cpf_cpnj);
+    Res.Send<TJSONObject>(ojson).Status(THTTPStatus.OK);
+  end
+  else
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('message',
+      'Customer not found')).Status(THTTPStatus.NotFound);
+end;
+
+class procedure TCustomerController.Post(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  ojson: TJSONObject;
+  Customer: TCustomerModel;
+begin
+  if Req.Body.IsEmpty then
+    raise Exception.Create('Customer data not found');
+  ojson := Req.Body<TJSONObject>;
+  Customer := TCustomerModel.Create;
+  try
+    Customer.codigo   := ojson.GetValue<Integer>('codigo');
+    Customer.nome     := ojson.GetValue<string>('nome');
+    Customer.cpf_cpnj := ojson.GetValue<string>('cpf_cnpj');
+    Customer.Insert;
+    Res.Send<TJSONObject>(ojson).Status(THTTPStatus.Created);
+  finally
+    Customer.Free;
   end;
+end;
+
+class procedure TCustomerController.Put(Req: THorseRequest; Res: THorseResponse; Next: TProc);
+var
+  Customer: TCustomerModel;
+  ojson: TJSONObject;
+  id: Integer;
+begin
+  if Req.Params.Count = 0 then
+    raise Exception.Create('id not found');
+  id := Req.Params.Items['id'].ToInteger();
+  if Req.Body.IsEmpty then
+    raise Exception.Create('Customer data not found');
+  ojson := Req.Body<TJSONObject>;
+  Customer := TCustomerModel.find(id);
+  if Assigned(Customer) then
+  begin
+    Customer.codigo   := id;
+    Customer.nome     := ojson.GetValue<string>('nome');
+    Customer.cpf_cpnj := ojson.GetValue<string>('cpf_cnpj');
+    Customer.Update;
+    Res.Send<TJSONObject>(ojson).Status(THTTPStatus.OK);
+  end
+  else
+    Res.Send<TJSONObject>(TJSONObject.Create.AddPair('message', 'Customer not found')).Status(THTTPStatus.NotFound);
+
 end;
 
 class procedure TCustomerController.Registry;
 begin
-  THorse.Get('/customer', Get)
+  THorse.Get('/customer', GetAll)
         .Get('/customer/:id', GetOne)
-        .Post('/customer', Create)
-        .Put('/customer/:id', Update)
-        .Delete('/customer/:id', Delete)
-end;
-
-class procedure TCustomerController.Update(Req: THorseRequest;
-  Res: THorseResponse; Next: TProc);
-var
-  oJson: TJSONObject;
-  customer: TCustomerModel;
-  id: Integer;
-begin
-  if Req.Body.IsEmpty then
-    raise Exception.Create('Customer data not found!');
-  if Req.Params.Count = 0 then
-    raise Exception.Create('Id not found');
-  id := Req.Params.Items['id'].ToInteger;
-  oJson := Req.Body<TJSONObject>;
-  customer := TCustomerModel.find(id);
-  customer.codigo := oJson.GetValue<integer>('codigo');
-  customer.nome   := oJson.GetValue<string>('nome');
-  customer.cpf_cnpj := oJson.GetValue<string>('cpf_cnpj');
-  customer.Update;
-  Res.Send<TJSONObject>(oJson);
+        .Post('/customer', Post)
+        .Put('/customer/:id', Put)
+        .Delete('/customer/:id', Delete);
 end;
 
 end.
